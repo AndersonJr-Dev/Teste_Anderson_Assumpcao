@@ -151,7 +151,7 @@ def processar_dados():
                         df_filtrado['VALOR_DESPESA'] = df_filtrado['VL_SALDO_FINAL'].apply(normalizar_valor)
                         df_filtrado['DESCRICAO'] = df_filtrado['DESCRICAO'].astype(str).str.strip()
                         
-                        cols = ['CNPJ', 'RAZAO_SOCIAL', 'UF', 'MODALIDADE', 'TRIMESTRE', 'ANO', 'VALOR_DESPESA', 'DESCRICAO']
+                        cols = ['REG_ANS', 'CNPJ', 'RAZAO_SOCIAL', 'UF', 'MODALIDADE', 'TRIMESTRE', 'ANO', 'VALOR_DESPESA', 'DESCRICAO']
                         
                         dados_consolidados.append(df_filtrado[cols])
                         count += len(df_filtrado)
