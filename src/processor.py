@@ -52,29 +52,26 @@ def obter_mapa_operadoras():
         
         df.columns = [c.strip().upper() for c in df.columns]
         
-        # Regra: Tem 'REGISTRO', mas NÃO tem 'DATA'
+        # Mapeamento dinâmico das colunas extras (UF e Modalidade)
         col_reg = next((c for c in df.columns if 'REGISTRO' in c and 'DATA' not in c), None)
         col_cnpj = next((c for c in df.columns if 'CNPJ' in c), None)
         col_nome = next((c for c in df.columns if 'RAZAO' in c or 'NOME' in c), None)
+        col_uf = next((c for c in df.columns if 'UF' == c or 'ESTADO' in c), None)
+        col_mod = next((c for c in df.columns if 'MODALIDADE' in c), None)
         
-        if not (col_reg and col_cnpj and col_nome):
-            print(f"   [AVISO] Colunas não identificadas. Disponíveis: {list(df.columns)}")
-            return {}
-
-        print(f"   [v] Colunas mapeadas CORRETAMENTE: {col_reg} | {col_cnpj} | {col_nome}")
+        print(f"   [v] Colunas extras mapeadas: UF='{col_uf}' | MODALIDADE='{col_mod}'")
         
         mapa = {}
         for _, row in df.iterrows():
-            # Remove zeros à esquerda para garantir o match (ex: '0123' vira '123')
-            # No arquivo de despesas pode vir como número inteiro
             reg = str(row[col_reg]).strip().lstrip('0')
-            
             cnpj_raw = str(row[col_cnpj]).strip()
             cnpj_limpo = ''.join(filter(str.isdigit, cnpj_raw))
             
             mapa[reg] = {
                 'CNPJ': cnpj_limpo if cnpj_limpo else cnpj_raw, 
-                'RAZAO_SOCIAL': row[col_nome]
+                'RAZAO_SOCIAL': row[col_nome],
+                'UF': row[col_uf] if col_uf else 'ND',
+                'MODALIDADE': row[col_mod] if col_mod else 'ND'
             }
         
         print(f"   [v] {len(mapa)} operadoras carregadas.")
@@ -83,8 +80,7 @@ def obter_mapa_operadoras():
     except Exception as e:
         print(f"   [ERRO] Falha ao baixar cadastro: {e}")
         return {}
-    
-# Normaliza valores monetários, tratando vírgulas, pontos e NaN
+# Normaliza valores monetários    
 def normalizar_valor(valor):
     if pd.isna(valor): return 0.0
     val_str = str(valor).strip()
@@ -125,10 +121,8 @@ def processar_dados():
             for csv_nome in csvs:
                 path_csv = os.path.join(TEMP_DIR, csv_nome)
                 try:
-                    # Leitura do CSV
                     with open(path_csv, 'rb') as f:
                         raw_data = f.read()
-                    
                     # Tratamento de encoding manual
                     try:
                         conteudo_csv = raw_data.decode('utf-8')
@@ -147,18 +141,18 @@ def processar_dados():
                         
                         df_filtrado['REG_ANS'] = df_filtrado['REG_ANS'].astype(str).str.strip().str.lstrip('0')
                         
-                        # Mapeia CNPJ e RAZAO_SOCIAL
+                        # Mapeamentos
                         df_filtrado['CNPJ'] = df_filtrado['REG_ANS'].map(lambda x: mapa_operadoras.get(x, {}).get('CNPJ', 'N/A'))
                         df_filtrado['RAZAO_SOCIAL'] = df_filtrado['REG_ANS'].map(lambda x: mapa_operadoras.get(x, {}).get('RAZAO_SOCIAL', 'N/A'))
-                        
+                        df_filtrado['UF'] = df_filtrado['REG_ANS'].map(lambda x: mapa_operadoras.get(x, {}).get('UF', 'ND'))
+                        df_filtrado['MODALIDADE'] = df_filtrado['REG_ANS'].map(lambda x: mapa_operadoras.get(x, {}).get('MODALIDADE', 'ND'))     
                         df_filtrado['TRIMESTRE'] = tri
                         df_filtrado['ANO'] = ano
                         df_filtrado['VALOR_DESPESA'] = df_filtrado['VL_SALDO_FINAL'].apply(normalizar_valor)
-                        
-                        # Limpa espaços em branco na descrição
                         df_filtrado['DESCRICAO'] = df_filtrado['DESCRICAO'].astype(str).str.strip()
-
-                        cols = ['CNPJ', 'RAZAO_SOCIAL', 'TRIMESTRE', 'ANO', 'VALOR_DESPESA', 'DESCRICAO']
+                        
+                        cols = ['CNPJ', 'RAZAO_SOCIAL', 'UF', 'MODALIDADE', 'TRIMESTRE', 'ANO', 'VALOR_DESPESA', 'DESCRICAO']
+                        
                         dados_consolidados.append(df_filtrado[cols])
                         count += len(df_filtrado)
                     print(f"   -> {csv_nome}: {count} linhas.")
